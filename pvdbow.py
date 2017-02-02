@@ -210,49 +210,50 @@ def generate_batch(twcp_gen):
 
 # <codecell>
 
-graph = tf.Graph()
+# Input data
+dataset = tf.placeholder(tf.int32, shape=[BATCH_SIZE])
+labels = tf.placeholder(tf.int32, shape=[BATCH_SIZE, 1])
 
-with graph.as_default(), tf.device('/cpu:0'):
-    
-    # Input data
-    dataset = tf.placeholder(tf.int32, shape=[BATCH_SIZE])
-    labels = tf.placeholder(tf.int32, shape=[BATCH_SIZE, 1])
-    
-    # Weights
-    embeddings = tf.Variable(
-            tf.random_uniform([len(doclens), EMBEDDING_SIZE],
-                              -1.0, 1.0))
-    softmax_weights = tf.Variable(
-            tf.truncated_normal(
-                    [vocab_size, EMBEDDING_SIZE],
-                    stddev=1.0 / np.sqrt(EMBEDDING_SIZE)))
-    softmax_biases = tf.Variable(tf.zeros([vocab_size]))
-    
-    # Model
-    # Look up embeddings for inputs
-    embed = tf.nn.embedding_lookup(embeddings, dataset)
-    # Compute the softmax loss, using a sample of the negative
-    # labels each time
-    loss = tf.reduce_mean(
-            tf.nn.sampled_softmax_loss(
-                    softmax_weights, softmax_biases, embed,
-                    labels, NUM_SAMPLED, vocab_size))
-    
-    # Optimizer
-    optimizer = tf.train.AdagradOptimizer(LEARNING_RATE).minimize(
-            loss)
-    
-    # Test loss
-    test_loss = tf.reduce_mean(
-            tf.nn.sparse_softmax_cross_entropy_with_logits(
-                    tf.matmul(embed, tf.transpose(
-                              softmax_weights)) + softmax_biases,
-                    labels[:, 0]))
-    
-    # Normalized embeddings (to use cosine similarity later on)
-    norm = tf.sqrt(tf.reduce_sum(tf.square(embeddings), 1,
-                                  keep_dims=True))
-    normalized_embeddings = embeddings / norm
+# Weights
+embeddings = tf.Variable(
+        tf.random_uniform([len(doclens), EMBEDDING_SIZE],
+                          -1.0, 1.0))
+softmax_weights = tf.Variable(
+        tf.truncated_normal(
+                [vocab_size, EMBEDDING_SIZE],
+                stddev=1.0 / np.sqrt(EMBEDDING_SIZE)))
+softmax_biases = tf.Variable(tf.zeros([vocab_size]))
+
+# Model
+# Look up embeddings for inputs
+embed = tf.nn.embedding_lookup(embeddings, dataset)
+# Compute the softmax loss, using a sample of the negative
+# labels each time
+loss = tf.reduce_mean(
+        tf.nn.sampled_softmax_loss(
+                softmax_weights, softmax_biases, embed,
+                labels, NUM_SAMPLED, vocab_size))
+
+# Optimizer
+optimizer = tf.train.AdagradOptimizer(LEARNING_RATE).minimize(
+        loss)
+
+# Test loss
+test_loss = tf.reduce_mean(
+        tf.nn.sparse_softmax_cross_entropy_with_logits(
+                tf.matmul(embed, tf.transpose(
+                          softmax_weights)) + softmax_biases,
+                labels[:, 0]))
+
+# Normalized embeddings (to use cosine similarity later on)
+norm = tf.sqrt(tf.reduce_sum(tf.square(embeddings), 1,
+                              keep_dims=True))
+normalized_embeddings = embeddings / norm
+
+# <codecell>
+
+session = tf.Session()
+session.run(tf.global_variables_initializer())
 
 # <codecell>
 
@@ -273,33 +274,29 @@ def get_test_loss(session):
 
 # <codecell>
 
-def train():
-    with tf.Session(graph=graph) as session:
-        session.run(tf.global_variables_initializer())
-        print('Initialized')
-        avg_training_loss = 0
-        for step in range(NUM_STEPS):
-            batch_data, batch_labels = generate_batch(twcp_train_gen)
-            _, l = session.run(
-                    [optimizer, loss],
-                    feed_dict={dataset: batch_data, labels: batch_labels})
-            avg_training_loss += l
-            if step % REPORT_EVERY_X_STEPS == 0:
-                if step > 0:
-                    avg_training_loss = \
-                            avg_training_loss / REPORT_EVERY_X_STEPS
-                # The average loss is an estimate of the loss over the
-                # last REPORT_EVERY_X_STEPS batches
-                print('Average loss at step {:d}: {:.1f}'.format(
-                        step, avg_training_loss))
-                avg_training_loss = 0
-                test_l = get_test_loss(session)
-                print('Test loss at step {:d}: {:.1f}'.format(
-                        step, test_l))
+def train(session):
+    avg_training_loss = 0
+    for step in range(NUM_STEPS):
+        batch_data, batch_labels = generate_batch(twcp_train_gen)
+        _, l = session.run(
+                [optimizer, loss],
+                feed_dict={dataset: batch_data, labels: batch_labels})
+        avg_training_loss += l
+        if step > 0 and step % REPORT_EVERY_X_STEPS == 0:
+            avg_training_loss = \
+                    avg_training_loss / REPORT_EVERY_X_STEPS
+            # The average loss is an estimate of the loss over the
+            # last REPORT_EVERY_X_STEPS batches
+            print('Average loss at step {:d}: {:.1f}'.format(
+                    step, avg_training_loss))
+            avg_training_loss = 0
+            test_l = get_test_loss(session)
+            print('Test loss at step {:d}: {:.1f}'.format(
+                    step, test_l))
 
 # <codecell>
 
-%lprun -f train train()
+%lprun -f train train(session)
 
 # <codecell>
 
