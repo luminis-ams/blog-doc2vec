@@ -135,21 +135,17 @@ doc_start_indexes, twcp = get_text_window_center_positions()
 # <codecell>
 
 def get_train_test():
-    global twcp
-    np.random.shuffle(twcp)
     split_point = (len(twcp) // 100) * (100 - PV_TEST_SET_PERCENTAGE)
     twcp_train = twcp[:split_point]
 
     # Test set data must come from known documents
     docids_train = set([data[i][0] for i in twcp_train])
     twcp_test = []
-    twcp_test_reject = []
     for i in twcp[split_point:]:
         if data[i][0] in docids_train:
             twcp_test.append(i)
         else:
-            twcp_test_reject.append(i)
-    twcp_train.extend(twcp_test_reject)
+            twcp_train.append(i)
     if not twcp_test:
         raise ValueError(
             'No test data, try increasing PV_TEST_SET_PERCENTAGE')
@@ -157,7 +153,9 @@ def get_train_test():
 
 # <codecell>
 
+np.random.shuffle(twcp)
 twcp_train, twcp_test = get_train_test()
+del twcp # save some memory
 
 # <codecell>
 
