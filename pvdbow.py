@@ -18,7 +18,8 @@ nltk.download('reuters')
 nltk.download('punkt')
 
 PERCENTAGE_DOCS = 1.0 # Build model on random subset of Reuters docs
-VOCAB_SIZE = 50000
+VOCAB_SIZE = 1000
+REMOVE_TOP_K_TERMS = 50
 TEXT_WINDOW_SIZE = 8
 BATCH_SIZE = 10 * TEXT_WINDOW_SIZE
 EMBEDDING_SIZE = 128
@@ -58,7 +59,9 @@ def build_dataset():
     count = [['__UNK__', 0], ['__NULL__', 0]]
     count.extend(collections.Counter(
             [word for words in doc2words.values() \
-                    for word in words]).most_common(VOCAB_SIZE - 2))
+            for word in words]).most_common(
+                    VOCAB_SIZE - 2 + REMOVE_TOP_K_TERMS)[
+                            REMOVE_TOP_K_TERMS:])
     assert not set(['__UNK__', '__NULL__']) & set(next(zip(
             *count[2:])))
     dictionary = {}
