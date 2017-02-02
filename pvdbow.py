@@ -24,10 +24,10 @@ TEXT_WINDOW_SIZE = 8
 BATCH_SIZE = 10 * TEXT_WINDOW_SIZE
 EMBEDDING_SIZE = 128
 PV_TEST_SET_PERCENTAGE = 5
-NUM_STEPS = 100001
+NUM_STEPS = 10001
 LEARNING_RATE = 0.1
 NUM_SAMPLED = 64
-REPORT_EVERY_X_STEPS = 100
+REPORT_EVERY_X_STEPS = 200
 
 # Token integer ids for special tokens
 UNK = 0
@@ -55,7 +55,7 @@ def build_dataset():
     doc2words = {docid: [normalize(word) for word in word_tokenize(
             reuters.raw(fileid)) if accept(word)] \
             for docid, fileid in enumerate(
-                    reuters.fileids()) if accept_doc()}
+                    (i for i in reuters.fileids() if accept_doc()))}
     count = [['__UNK__', 0], ['__NULL__', 0]]
     count.extend(collections.Counter(
             [word for words in doc2words.values() \
