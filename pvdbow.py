@@ -17,7 +17,7 @@ from nltk.tokenize import word_tokenize
 nltk.download('reuters')
 nltk.download('punkt')
 
-N_DOCS = 100 # Only use first N_DOCS Reuters docs
+PERCENTAGE_DOCS = 1.0 # Build model on random subset of Reuters docs
 VOCAB_SIZE = 50000
 TEXT_WINDOW_SIZE = 8
 BATCH_SIZE = 10 * TEXT_WINDOW_SIZE
@@ -31,6 +31,11 @@ REPORT_EVERY_X_STEPS = 100
 # Token integer ids for special tokens
 UNK = 0
 NULL = 1
+
+# <codecell>
+
+def accept_doc():
+    return np.random.random() * 100 < PERCENTAGE_DOCS
 
 # <codecell>
 
@@ -49,7 +54,7 @@ def build_dataset():
     doc2words = {docid: [normalize(word) for word in word_tokenize(
             reuters.raw(fileid)) if accept(word)] \
             for docid, fileid in enumerate(
-                    reuters.fileids()[:N_DOCS])}
+                    reuters.fileids()) if accept_doc()}
     count = [['__UNK__', 0], ['__NULL__', 0]]
     count.extend(collections.Counter(
             [word for words in doc2words.values() \
