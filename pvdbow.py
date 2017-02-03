@@ -13,6 +13,9 @@ import tensorflow as tf
 import nltk
 from nltk.corpus import reuters
 from nltk.tokenize import word_tokenize
+from sklearn.manifold import TSNE
+import matplotlib.pyplot as plt
+%matplotlib inline
 
 nltk.download('reuters')
 nltk.download('punkt')
@@ -21,15 +24,19 @@ PERCENTAGE_DOCS = 1.0 # random subsample of Reuters training docs
 VOCAB_SIZE = 1000
 REMOVE_TOP_K_TERMS = 50
 MIN_TERM_FREQ = 3
+
 TEXT_WINDOW_SIZE = 8
 BATCH_SIZE = 10 * TEXT_WINDOW_SIZE
 EMBEDDING_SIZE = 128
+SHUFFLE_EVERY_X_EPOCH = 5
 PV_TEST_SET_PERCENTAGE = 5
 NUM_STEPS = 10001
 LEARNING_RATE = 0.1
 NUM_SAMPLED = 64
 REPORT_EVERY_X_STEPS = 200
-SHUFFLE_EVERY_X_EPOCH = 5
+
+END_TO_END_EVERY_X_STEPS = 3000
+TSNE_NUM_DOCS = 400
 
 # Token integer ids for special tokens
 UNK = 0
@@ -262,7 +269,7 @@ session.run(tf.global_variables_initializer())
 
 # <codecell>
 
-def get_test_loss(session):
+def get_test_loss():
     # We do this in batches, too, to keep memory usage low.
     # Since our graph works with a fixed batch size, we
     # are lazy and just compute test loss on all batches that
@@ -279,9 +286,9 @@ def get_test_loss(session):
 
 # <codecell>
 
-def train(session):
+def train(num_steps):
     avg_training_loss = 0
-    for step in range(NUM_STEPS):
+    for step in range(num_steps):
         batch_data, batch_labels = generate_batch(twcp_train_gen)
         _, l = session.run(
                 [optimizer, loss],
@@ -295,22 +302,50 @@ def train(session):
             print('Average loss at step {:d}: {:.1f}'.format(
                     step, avg_training_loss))
             avg_training_loss = 0
-            test_l = get_test_loss(session)
+            test_l = get_test_loss()
             print('Test loss at step {:d}: {:.1f}'.format(
                     step, test_l))
 
 # <codecell>
 
-%lprun -f train train(session)
-
-# <codecell>
-
-most_common_class = collections.Counter(
-        [c for cs in [reuters.categories(fileid) for fileid in fileids] \
-        for c in cs]).most_common(1)[0][0]
-print('Most common class in sampled documents:', most_common_class)
-
-# <codecell>
-
-tc_labels = [1 if most_common_class in reuters.categories(fileid) else 0 \
+def get_labels():
+    most_common_class = collections.Counter(
+            [c for cs in [reuters.categories(fileid) for fileid in fileids] \
+            for c in cs]).most_common(1)[0][0]
+    print('Most common class in sampled documents:', most_common_class)
+    return [1 if most_common_class in reuters.categories(fileid) else 0 \
              for fileid in fileids]
+
+# <codecell>
+
+def get_two_d_embeddings():
+    num_points = min(TSNE_NUM_DOCS, len(fileids))
+    current_embeddings = session.run(normalized_embeddings)
+    tsne = TSNE(perplexity=30, n_components=2, init='pca', n_iter=5000)
+    return tsne.fit_transform(current_embeddings[0:num_points, :])
+
+# <codecell>
+
+def plot(embeddings, labels_):
+    labels = np.array(labels_, dtype=np.bool)
+    fig = plt.figure(figsize=(13, 8))
+    plt.plot(embeddings[labels, 0], embeddings[labels, 1], 'o', color='purple')
+    plt.plot(embeddings[~labels, 0], embeddings[~labels, 1], 'o', color='lightgrey')
+    plt.show()
+
+# <codecell>
+
+def end_to_end(num_steps):
+    train(num_steps)
+    plot(get_two_d_embeddings(), get_labels())
+
+# <codecell>
+
+def run():
+    for i in range(NUM_STEPS // END_TO_END_EVERY_X_STEPS):
+        end_to_end(END_TO_END_EVERY_X_STEPS)
+    end_to_end(NUM_STEPS % END_TO_END_EVERY_X_STEPS)
+
+# <codecell>
+
+%lprun -f train run()
