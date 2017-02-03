@@ -17,9 +17,10 @@ from nltk.tokenize import word_tokenize
 nltk.download('reuters')
 nltk.download('punkt')
 
-PERCENTAGE_DOCS = 1.0 # Build model on random subset of Reuters docs
+PERCENTAGE_DOCS = 1.0 # random subsample of Reuters training docs
 VOCAB_SIZE = 1000
 REMOVE_TOP_K_TERMS = 50
+MIN_TERM_FREQ = 3
 TEXT_WINDOW_SIZE = 8
 BATCH_SIZE = 10 * TEXT_WINDOW_SIZE
 EMBEDDING_SIZE = 128
@@ -57,8 +58,9 @@ def repeater_shuffler(l_):
 
 # <codecell>
 
-def accept_doc():
-    return np.random.random() * 100 < PERCENTAGE_DOCS
+def accept_doc(fileid):
+    return fileid.startswith('training/') \
+            and np.random.random() * 100 < PERCENTAGE_DOCS
 
 # <codecell>
 
@@ -74,16 +76,17 @@ def normalize(word):
 # <codecell>
 
 def build_dataset():
-    doc2words = {docid: [normalize(word) for word in word_tokenize(
-            reuters.raw(fileid)) if accept(word)] \
-            for docid, fileid in enumerate(
-                    (i for i in reuters.fileids() if accept_doc()))}
+    fileid2words = {fileid:
+            [normalize(word) for word in word_tokenize(
+                    reuters.raw(fileid)) if accept(word)] \
+            for fileid in reuters.fileids() if accept_doc(fileid)}
     count = [['__UNK__', 0], ['__NULL__', 0]]
-    count.extend(collections.Counter(
-            [word for words in doc2words.values() \
+    count.extend([(word, count) for word, count in collections.Counter(
+            [word for words in fileid2words.values() \
             for word in words]).most_common(
                     VOCAB_SIZE - 2 + REMOVE_TOP_K_TERMS)[
-                            REMOVE_TOP_K_TERMS:])
+                            REMOVE_TOP_K_TERMS:
+                    ] if count >= MIN_TERM_FREQ])
     assert not set(['__UNK__', '__NULL__']) & set(next(zip(
             *count[2:])))
     dictionary = {}
@@ -93,7 +96,8 @@ def build_dataset():
                                   dictionary.keys()))
     data = []
     doclens = []
-    for docid, words in doc2words.items():
+    fileids = []
+    for docid, (fileid, words) in enumerate(fileid2words.items()):
         for word in words:
             if word in dictionary:
                 wordid = dictionary[word]
@@ -104,15 +108,16 @@ def build_dataset():
         # Pad with NULL values if necessary
         doclen = len(words)
         doclens.append(doclen)
+        fileids.append(fileid)
         if doclen < TEXT_WINDOW_SIZE:
             n_nulls = TEXT_WINDOW_SIZE - doclen
             data.extend([(docid, NULL)] * n_nulls)
             count[NULL][1] += n_nulls
-    return data, count, doclens, dictionary, reverse_dictionary
+    return data, count, doclens, fileids, dictionary, reverse_dictionary
 
 # <codecell>
 
-data, count, doclens, dictionary, reverse_dictionary = \
+data, count, doclens, fileids, dictionary, reverse_dictionary = \
         build_dataset()
 
 # <codecell>
@@ -124,8 +129,8 @@ assert len(data) == sum([i for _, i in count])
 print('Most common words (+UNK and NULL):', count[:5])
 print('Least common words:', count[-5:])
 print('Sample data:', data[:5])
-
 vocab_size = min(VOCAB_SIZE, len(count))
+print('Effective vocab size:', vocab_size)
 
 # <codecell>
 
@@ -300,4 +305,12 @@ def train(session):
 
 # <codecell>
 
+most_common_class = collections.Counter(
+        [c for cs in [reuters.categories(fileid) for fileid in fileids] \
+        for c in cs]).most_common(1)[0][0]
+print('Most common class in sampled documents:', most_common_class)
 
+# <codecell>
+
+tc_labels = [1 if most_common_class in reuters.categories(fileid) else 0 \
+             for fileid in fileids]
