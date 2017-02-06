@@ -14,6 +14,9 @@ import nltk
 from nltk.corpus import reuters
 from nltk.tokenize import word_tokenize
 from sklearn.manifold import TSNE
+from sklearn import svm
+from sklearn.metrics import classification_report
+
 import matplotlib.pyplot as plt
 %matplotlib inline
 
@@ -36,6 +39,7 @@ NUM_SAMPLED = 64
 REPORT_EVERY_X_STEPS = 200
 
 END_TO_END_EVERY_X_STEPS = 3000
+E2E_TEST_SET_PERCENTAGE = 30
 TSNE_NUM_DOCS = 400
 
 # Token integer ids for special tokens
@@ -169,7 +173,7 @@ doc_start_indexes, twcp = get_text_window_center_positions()
 # <codecell>
 
 def get_train_test():
-    split_point = (len(twcp) // 100) * (100 - PV_TEST_SET_PERCENTAGE)
+    split_point = len(twcp) * (100 - PV_TEST_SET_PERCENTAGE) // 100
     twcp_train = twcp[:split_point]
 
     # Test set data must come from known documents
@@ -312,32 +316,75 @@ def get_labels():
     most_common_class = collections.Counter(
             [c for cs in [reuters.categories(fileid) for fileid in fileids] \
             for c in cs]).most_common(1)[0][0]
-    print('Most common class in sampled documents:', most_common_class)
-    return [1 if most_common_class in reuters.categories(fileid) else 0 \
-             for fileid in fileids]
+    print('Most common class in sampled documents:',
+          most_common_class)
+    return (
+            np.array(
+                    [1 if most_common_class in reuters.categories(
+                            fileid) else 0 for fileid in fileids], 
+                     dtype=np.int32),
+            ('other', most_common_class)
+            )
+        
 
 # <codecell>
 
-def get_two_d_embeddings():
+e2e_labels, target_names = get_labels()
+
+# <codecell>
+
+def get_two_d_embeddings(embeddings):
     num_points = min(TSNE_NUM_DOCS, len(fileids))
-    current_embeddings = session.run(normalized_embeddings)
-    tsne = TSNE(perplexity=30, n_components=2, init='pca', n_iter=5000)
-    return tsne.fit_transform(current_embeddings[0:num_points, :])
+    tsne = TSNE(perplexity=30, n_components=2, init='pca', 
+                n_iter=5000)
+    return tsne.fit_transform(embeddings[0:num_points, :])
 
 # <codecell>
 
-def plot(embeddings, labels_):
-    labels = np.array(labels_, dtype=np.bool)
+def plot(embeddings):
     fig = plt.figure(figsize=(13, 8))
-    plt.plot(embeddings[labels, 0], embeddings[labels, 1], 'o', color='purple')
-    plt.plot(embeddings[~labels, 0], embeddings[~labels, 1], 'o', color='lightgrey')
+    class_1 = e2e_labels.astype('bool')
+    plt.plot(embeddings[class_1, 0], embeddings[class_1, 1], 
+             'o', color='purple')
+    plt.plot(embeddings[~class_1, 0], embeddings[~class_1, 1],
+             'o', color='lightgrey')
     plt.show()
+
+# <codecell>
+
+def get_e2e_train_test():
+    indices = np.array(range(len(fileids)), dtype=np.int32)
+    np.random.shuffle(indices)
+    split_point = len(indices) * (100 - E2E_TEST_SET_PERCENTAGE) \
+            // 100
+    e2e_train =np.array([True if i in indices[:split_point] \
+                         else False for i in range(len(fileids))])
+    return e2e_train
+
+# <codecell>
+
+e2e_train = get_e2e_train_test()
+
+# <codecell>
+
+def classification_experiment(embeddings):
+    X = embeddings[e2e_train, :]
+    y = e2e_labels[e2e_train]
+    clf = svm.SVC(kernel='linear', class_weight='balanced')
+    clf.fit(X, y)
+    predictions = clf.predict(
+            embeddings[~e2e_train, :])
+    print(classification_report(
+            e2e_labels[~e2e_train],
+            predictions, target_names=target_names))
 
 # <codecell>
 
 def end_to_end(num_steps):
     train(num_steps)
-    plot(get_two_d_embeddings(), get_labels())
+    current_embeddings = session.run(normalized_embeddings)
+    plot(get_two_d_embeddings(current_embeddings))
+    classification_experiment(current_embeddings)
 
 # <codecell>
 
