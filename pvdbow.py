@@ -49,6 +49,7 @@ NULL = 1
 # <codecell>
 
 %load_ext line_profiler
+%load_ext memory_profiler
 
 # <codecell>
 
@@ -395,4 +396,6 @@ def run():
 
 # <codecell>
 
-%lprun -f train run()
+#%mprun -f train run() # only works on physical file functions ;-(
+#%lprun -f train run() # uncomment to use (time profiling)
+%memit -r 1 run() # uncomment to use (memory consumption)
