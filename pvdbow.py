@@ -23,22 +23,22 @@ import matplotlib.pyplot as plt
 nltk.download('reuters')
 nltk.download('punkt')
 
-PERCENTAGE_DOCS = 1.0 # random subsample of Reuters training docs
-VOCAB_SIZE = 1000
-REMOVE_TOP_K_TERMS = 50
-MIN_TERM_FREQ = 3
+PERCENTAGE_DOCS = 100 # random subsample of Reuters training docs
+VOCAB_SIZE = 10000
+REMOVE_TOP_K_TERMS = 100
+MIN_TERM_FREQ = 5
 
 TEXT_WINDOW_SIZE = 8
 BATCH_SIZE = 10 * TEXT_WINDOW_SIZE
 EMBEDDING_SIZE = 128
 SHUFFLE_EVERY_X_EPOCH = 5
 PV_TEST_SET_PERCENTAGE = 5
-NUM_STEPS = 10001
+NUM_STEPS = 100001
 LEARNING_RATE = 0.1
 NUM_SAMPLED = 64
-REPORT_EVERY_X_STEPS = 200
+REPORT_EVERY_X_STEPS = 2000
 
-END_TO_END_EVERY_X_STEPS = 3000
+END_TO_END_EVERY_X_STEPS = 30000
 E2E_TEST_SET_PERCENTAGE = 30
 TSNE_NUM_DOCS = 400
 
@@ -344,7 +344,7 @@ def get_two_d_embeddings(embeddings):
 
 def plot(embeddings):
     fig = plt.figure(figsize=(13, 8))
-    class_1 = e2e_labels.astype('bool')
+    class_1 = e2e_labels[:embeddings.shape[0]].astype('bool')
     plt.plot(embeddings[class_1, 0], embeddings[class_1, 1], 
              'o', color='purple')
     plt.plot(embeddings[~class_1, 0], embeddings[~class_1, 1],
@@ -397,5 +397,6 @@ def run():
 # <codecell>
 
 #%mprun -f train run() # only works on physical file functions ;-(
-#%lprun -f train run() # uncomment to use (time profiling)
-%memit -r 1 run() # uncomment to use (memory consumption)
+%lprun -f train run() # uncomment to use (time profiling)
+#%timeit -n 1 run() # uncomment to use (summary time profiling)
+#%memit -r 1 run() # uncomment to use (memory consumption)
