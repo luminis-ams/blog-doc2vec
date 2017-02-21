@@ -7,9 +7,10 @@ And two previous blog posts leading up to the abovementioned one:
 - https://amsterdam.luminis.eu/2017/01/16/googling-doc2vec/
 - https://amsterdam.luminis.eu/2017/01/30/implementing-doc2vec/
 
-As a starting point for the code, the word2vec implementation in
-assignment 5 was used, and lots of small things were subsequently
-changed, added, and removed.
+As a starting point for the code, the word2vec implementation in assignment 5
+of the Udacity deep learning course was used, and lots of small things were
+subsequently changed, added, and removed:
+https://github.com/tensorflow/tensorflow/blob/master/tensorflow/examples/udacity/5_word2vec.ipynb
 
 Feel free to play with this code, improve it, fix it, and add to it.
 
