@@ -22,3 +22,10 @@ Install Python 3, and the packages listed at the top of the
 Remember, before you run it, to set `PERCENTAGE_DOCS` to a lower value, e.g.,
 something like 5 percent, just to check if it all works before you train a
 network on the whole Reuters training data set (which may take a while).
+
+Finally, the repository contains a file `environment.yml`, which contains
+the versions of the python packages in the `conda` environment I used to
+spin up Jupyter Notebook. It contains some other stuff you won't need, but
+I include it for reference. For the packages you do need, you can take a
+look at the versions I used if you don't get it to work otherwise.
+
